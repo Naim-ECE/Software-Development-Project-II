@@ -1,0 +1,30 @@
+{
+  "name": "errors-and-debugging",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tailwind": "npx @tailwindcss/cli -i ./views/input.css -o ./src/output.css --watch",
+    "start": "nodemon app.js & npm run tailwind"
+  },
+  "author": "",
+  "license": "ISC",
+  "_comment": "to add a unknown keyword beside 'start' it needs to run with 'npm run __' but for start 'npm start'. nodemon -> node monitor that tracks changes immediately. To create a json -> npm init -y also (npm install concurrently --save-dev) -> used to run start command in parallel",
+  "description": "",
+  "devDependencies": {
+    "autoprefixer": "^10.4.22",
+    "nodemon": "^3.1.11",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.17"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.17",
+    "body": "^5.1.0",
+    "cors": "^2.8.6",
+    "express": "^5.1.0",
+    "express-validator": "^7.3.1",
+    "mongodb": "^7.1.0",
+    "mongoose": "^9.2.1",
+    "parser": "^0.1.4"
+  }
+}

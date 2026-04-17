@@ -1,0 +1,11 @@
+.doingIt {
+    margin: 0.13rem;
+    padding: 0.26rem;
+    text-align: center;
+}
+
+/* @media (min-width:767px) {
+    .doingIt {
+        margin-left: 10rem;
+    }
+} */

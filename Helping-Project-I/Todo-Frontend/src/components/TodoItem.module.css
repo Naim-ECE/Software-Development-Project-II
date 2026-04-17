@@ -1,0 +1,14 @@
+.gap-row {
+    margin: 0.75rem;
+}
+
+.kg-button {
+    min-width: 4.4rem;
+}
+
+@media (max-width : 767px) {
+    .kg-button {
+        min-width: 4.4rem;
+        float: right;
+    }   
+}
