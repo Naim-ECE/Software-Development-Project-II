@@ -38,7 +38,7 @@ The objective of this project is to build a backend-focused inventory management
 
 ### Frontend
 - HTML  
-- CSS  
+- tailwind  
 - JavaScript  
 - React  
 
