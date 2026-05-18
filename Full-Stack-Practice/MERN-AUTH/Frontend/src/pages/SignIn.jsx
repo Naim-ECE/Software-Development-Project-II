@@ -1,12 +1,18 @@
 import React from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  signInStart,
+  signInSuccess,
+  signInFailure,
+} from "../redux/user/userSlice";
+import { useDispatch, useSelector } from "react-redux";
 
 export default function SignIn() {
   const [formData, setFormData] = useState({});
-  const [error, setError] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const { loading, error } = useSelector((state) => state.user);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const handleChange = (e) => {
     setFormData((formData) => ({
@@ -18,7 +24,7 @@ export default function SignIn() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      setIsLoading(true);
+      dispatch(signInStart());
       const fetchRequest = await fetch("api/auth/signin", {
         method: "POST",
         headers: {
@@ -28,16 +34,15 @@ export default function SignIn() {
       });
       const data = await fetchRequest.json();
 
-      setIsLoading(false);
       if (data.success === false) {
-        setError(true);
+        dispatch(signInFailure(data));
         return;
       }
-      setError(false);
+      dispatch(signInSuccess(data));
+
       navigate("/");
     } catch (err) {
-      setIsLoading(false);
-      setError(true);
+      dispatch(signInFailure(err));
     }
   };
 
@@ -63,10 +68,10 @@ export default function SignIn() {
           onChange={handleChange}
         />
         <button
-          disabled={isLoading}
+          disabled={loading}
           className="bg-slate-700 text-white p-4 rounded-lg uppercase font-semibold hover:opacity-95 cursor-pointer disabled:opacity-80"
         >
-          {isLoading ? "Loading..." : "Sign In"}
+          {loading ? "Loading..." : "Sign In"}
         </button>
       </form>
 
@@ -78,7 +83,7 @@ export default function SignIn() {
       </div>
 
       <p className="text-red-700 mt-5 text-center">
-        {error && "An error occurred while signing in."}
+        {error ? error.message || "An error occurred while signing in." : ""}
       </p>
     </>
   );
