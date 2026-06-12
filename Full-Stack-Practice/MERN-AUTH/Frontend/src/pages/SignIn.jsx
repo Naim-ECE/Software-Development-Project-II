@@ -23,6 +23,16 @@ export default function SignIn() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.email || !formData.password) {
+      dispatch(
+        signInFailure({
+          message: "Please enter both email and password",
+        }),
+      );
+      return;
+    }
+
     try {
       dispatch(signInStart());
       const fetchRequest = await fetch("api/auth/signin", {
@@ -42,7 +52,11 @@ export default function SignIn() {
 
       navigate("/");
     } catch (err) {
-      dispatch(signInFailure(err));
+      dispatch(
+        signInFailure({
+          message: err.message || "Network error occurred",
+        }),
+      );
     }
   };
 
@@ -82,9 +96,7 @@ export default function SignIn() {
         </Link>
       </div>
 
-      <p className="text-red-700 mt-5 text-center">
-        {error ? error.message || "An error occurred while signing in." : ""}
-      </p>
+      <p className="text-red-700 mt-5 text-center">{error?.message || ""}</p>
     </>
   );
 }
