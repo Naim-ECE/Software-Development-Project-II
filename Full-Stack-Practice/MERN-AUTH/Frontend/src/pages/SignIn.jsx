@@ -7,6 +7,7 @@ import {
   signInFailure,
 } from "../redux/user/userSlice";
 import { useDispatch, useSelector } from "react-redux";
+import OAuth from "../components/OAuth";
 
 export default function SignIn() {
   const [formData, setFormData] = useState({});
@@ -83,10 +84,11 @@ export default function SignIn() {
         />
         <button
           disabled={loading}
-          className="bg-slate-700 text-white p-4 rounded-lg uppercase font-semibold hover:opacity-95 cursor-pointer disabled:opacity-80"
+          className="bg-slate-700 text-white p-4 rounded-lg uppercase font-semibold hover:opacity-95 cursor-pointer disabled:opacity-80 transition-all duration-300 hover:scale-105 hover:shadow-lg"
         >
           {loading ? "Loading..." : "Sign In"}
         </button>
+        <OAuth />
       </form>
 
       <div className="flex gap-2 justify-center mt-5">

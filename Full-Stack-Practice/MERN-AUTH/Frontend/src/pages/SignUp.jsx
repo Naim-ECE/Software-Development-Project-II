@@ -1,6 +1,7 @@
 import React from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import OAuth from "../components/OAuth";
 
 export default function SignUp() {
   const [formData, setFormData] = useState({});
@@ -17,6 +18,15 @@ export default function SignUp() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.email || !formData.password || !formData.username) {
+      dispatch(
+        signInFailure({
+          message: "Please enter all required fields",
+        }),
+      );
+      return;
+    }
     try {
       setIsLoading(true);
       const fetchRequest = await fetch("api/auth/signup", {
@@ -71,10 +81,11 @@ export default function SignUp() {
         />
         <button
           disabled={isLoading}
-          className="bg-slate-700 text-white p-4 rounded-lg uppercase font-semibold hover:opacity-95 cursor-pointer disabled:opacity-80"
+          className="bg-slate-700 text-white p-4 rounded-lg uppercase font-semibold hover:opacity-95 cursor-pointer disabled:opacity-80 transition-all duration-300 hover:scale-105 hover:shadow-lg"
         >
           {isLoading ? "Loading..." : "Sign Up"}
         </button>
+        <OAuth />
       </form>
 
       <div className="flex gap-2 justify-center mt-5">
