@@ -42,7 +42,10 @@ export default function Header() {
                 About
               </li>
             </Link>
-            <Link to="/signin">
+            <Link
+              to={currentUser ? "/profile" : "/signin"}
+              className="relative group"
+            >
               {currentUser ? (
                 <div
                   className={`w-8 h-8 rounded-full overflow-hidden border-2 border-gray-300 transition-all duration-300 ${
