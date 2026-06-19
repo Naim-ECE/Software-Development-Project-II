@@ -49,7 +49,7 @@ export default function SignIn() {
         dispatch(signInFailure(data));
         return;
       }
-      dispatch(signInSuccess(data));
+      dispatch(signInSuccess(data.user || data));
 
       navigate("/");
     } catch (err) {
