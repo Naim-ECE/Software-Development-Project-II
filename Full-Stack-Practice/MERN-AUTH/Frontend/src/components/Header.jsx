@@ -24,9 +24,6 @@ export default function Header() {
     return username.charAt(0).toUpperCase();
   };
 
-  console.log("Current user:", currentUser);
-  console.log("Profile picture URL:", currentUser?.profilePicture);
-
   return (
     <>
       <div className="bg-slate-200">

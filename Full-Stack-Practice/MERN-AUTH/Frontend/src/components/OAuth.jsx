@@ -26,6 +26,7 @@ export default function OAuth() {
       console.log(data);
       if (data.success) {
         dispatch(signInSuccess(data.user));
+        navigate("/");
       } else {
         dispatch(signInFailure(data.message));
       }
