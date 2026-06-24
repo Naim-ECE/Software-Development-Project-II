@@ -1,17 +1,95 @@
 import React from "react";
 import { useSelector } from "react-redux";
+import { useRef, useState } from "react";
 
 const Profile = () => {
   const { currentUser } = useSelector((state) => state.user);
+  const fileRef = useRef(null);
+  const [image, setImage] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  // 🔥 NEW: State for form fields
+  const [username, setUsername] = useState(currentUser?.username || "");
+  const [email, setEmail] = useState(currentUser?.email || "");
+  const [password, setPassword] = useState("");
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImage(reader.result);
+    };
+    reader.readAsDataURL(file);
+
+    handleImageUpload(file);
+  };
+
+  const handleImageUpload = async (file) => {
+    try {
+      setUploading(true);
+      setError("");
+      setUploadSuccess(false);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append(
+        "upload_preset",
+        import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET,
+      );
+
+      console.log("🔥 Uploading to Cloudinary...");
+      console.log("Cloud Name:", import.meta.env.VITE_CLOUDINARY_CLOUD_NAME);
+      console.log(
+        "Upload Preset:",
+        import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET,
+      );
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: "POST", body: formData },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Upload failed:", errorData);
+        throw new Error(errorData.error?.message || "Upload failed");
+      }
+
+      const data = await response.json();
+      console.log("✅ Upload successful! Image URL:", data.secure_url);
+
+      setImage(data.secure_url);
+      setUploadSuccess(true);
+      setUploading(false);
+      alert("✅ Image uploaded successfully! Check the console for URL.");
+    } catch (error) {
+      console.error("❌ Upload error:", error);
+      setError(error.message || "Failed to upload image");
+      setUploading(false);
+      setUploadSuccess(false);
+    }
+  };
 
   const getAvatarUrl = () => {
-    // If profilePicture exists and isn't empty, use it
+    if (image) {
+      return image;
+    }
     if (currentUser?.profilePicture) {
       return currentUser.profilePicture;
     }
-    // Fallback: Generate initials avatar
     const name = currentUser?.username || "User";
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6366f1&color=fff&size=96&bold=true`;
+  };
+
+  // 🔥 NEW: Handle form submission
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log("Updating profile:", { username, email, password });
+    // Add your update logic here
   };
 
   return (
@@ -21,34 +99,86 @@ const Profile = () => {
       </h1>
       <div className="min-h-screen bg-gray-50 py-6">
         {/* Profile Form */}
-        <form className="max-w-md mx-auto p-5 space-y-4 bg-white rounded-2xl shadow-lg">
+        <form
+          onSubmit={handleSubmit}
+          className="max-w-md mx-auto p-5 space-y-4 bg-white rounded-2xl shadow-lg"
+        >
           {/* Profile Image with hover effects */}
           <div className="relative group w-24 h-24 mx-auto">
+            <input
+              type="file"
+              ref={fileRef}
+              className="hidden"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
             <img
               src={getAvatarUrl()}
               alt="Profile Image"
-              className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 shadow-lg transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 group-hover:shadow-2xl group-hover:border-blue-400"
+              className={`w-24 h-24 rounded-full object-cover border-4 border-gray-200 shadow-lg transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 group-hover:shadow-2xl group-hover:border-blue-400 ${
+                uploading ? "opacity-50" : ""
+              }`}
               referrerPolicy="no-referrer"
               crossOrigin="anonymous"
               onError={(e) => {
-                // Fallback
                 const name = currentUser?.username || "User";
                 e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6366f1&color=fff&size=96&bold=true`;
               }}
             />
-            {/* Hover overlay effect */}
+
+            {uploading && (
+              <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent"></div>
+              </div>
+            )}
+
+            {uploadSuccess && !uploading && (
+              <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-1">
+                <svg
+                  className="w-4 h-4 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+            )}
+
             <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 transition-all duration-500 flex items-center justify-center cursor-pointer">
-              <span className="opacity-0 group-hover:opacity-100 text-white text-[10px] font-semibold transition-all duration-500 transform group-hover:scale-100 scale-75">
-                Change Photo
+              <span
+                className="opacity-0 group-hover:opacity-100 text-white text-[10px] font-semibold transition-all duration-500 transform group-hover:scale-100 scale-75"
+                onClick={() => fileRef.current.click()}
+              >
+                {uploading ? "Uploading..." : "Change Photo"}
               </span>
             </div>
           </div>
 
-          {/* Username input with hover effects */}
+          {error && (
+            <div className="text-center">
+              <p className="text-red-500 text-xs">{error}</p>
+            </div>
+          )}
+          {uploadSuccess && !uploading && (
+            <div className="text-center">
+              <p className="text-green-500 text-xs">
+                ✅ Image uploaded successfully!
+              </p>
+            </div>
+          )}
+
+          {/* 🔥 FIXED: Username input with proper onChange */}
           <div className="relative group">
             <input
               type="text"
-              value={currentUser?.username}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="block w-full p-2.5 pl-9 border-2 border-gray-200 rounded-lg bg-white/80 backdrop-blur-sm transition-all duration-300 hover:border-blue-400 hover:shadow-lg hover:shadow-blue-100 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-sm"
             />
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-blue-400 transition-colors duration-300 text-sm">
@@ -56,11 +186,12 @@ const Profile = () => {
             </span>
           </div>
 
-          {/* Email input with hover effects */}
+          {/* 🔥 FIXED: Email input with proper onChange */}
           <div className="relative group">
             <input
               type="email"
-              value={currentUser?.email}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="block w-full p-2.5 pl-9 border-2 border-gray-200 rounded-lg bg-white/80 backdrop-blur-sm transition-all duration-300 hover:border-blue-400 hover:shadow-lg hover:shadow-blue-100 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-sm"
             />
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-blue-400 transition-colors duration-300 text-sm">
@@ -68,11 +199,13 @@ const Profile = () => {
             </span>
           </div>
 
-          {/* Password input with hover effects */}
+          {/* 🔥 FIXED: Password input with proper onChange */}
           <div className="relative group">
             <input
               type="password"
               placeholder="New Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="block w-full p-2.5 pl-9 border-2 border-gray-200 rounded-lg bg-white/80 backdrop-blur-sm transition-all duration-300 hover:border-blue-400 hover:shadow-lg hover:shadow-blue-100 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-sm"
             />
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-blue-400 transition-colors duration-300 text-sm">
@@ -83,7 +216,8 @@ const Profile = () => {
           {/* Update button with hover effects */}
           <button
             type="submit"
-            className="w-full py-2.5 px-4 bg-linear-to-r from-blue-500 to-purple-500 text-white font-semibold rounded-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-200 active:scale-95 transform text-sm cursor-pointer"
+            className="w-full py-2.5 px-4 bg-linear-to-r from-blue-500 to-purple-500 text-white font-semibold rounded-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-200 active:scale-95 transform text-sm cursor-pointer disabled:opacity-50"
+            disabled={uploading}
           >
             ✏️ Update Profile
           </button>
@@ -91,7 +225,6 @@ const Profile = () => {
 
         {/* Bottom Actions Section */}
         <div className="max-w-md mx-auto px-5 pb-5">
-          {/* Divider */}
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-200"></div>
@@ -103,9 +236,7 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3">
-            {/* Delete Account Button */}
             <button className="flex-1 py-2.5 px-4 bg-linear-to-r from-red-500 to-red-600 text-white font-semibold rounded-lg transition-all duration-300 hover:from-red-600 hover:to-red-700 hover:scale-[1.02] hover:shadow-xl hover:shadow-red-200 active:scale-95 transform flex items-center justify-center gap-2 group text-sm cursor-pointer">
               <svg
                 className="w-4 h-4 transition-transform duration-300 group-hover:rotate-12"
@@ -123,7 +254,6 @@ const Profile = () => {
               Delete Account
             </button>
 
-            {/* Sign Out Button */}
             <button className="flex-1 py-2.5 px-4 bg-linear-to-r from-gray-600 to-gray-700 text-white font-semibold rounded-lg transition-all duration-300 hover:from-gray-700 hover:to-gray-800 hover:scale-[1.02] hover:shadow-xl hover:shadow-gray-200 active:scale-95 transform flex items-center justify-center gap-2 group text-sm cursor-pointer">
               <svg
                 className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
