@@ -1,6 +1,16 @@
 import React from "react";
 import { useSelector } from "react-redux";
 import { useRef, useState } from "react";
+import { useDispatch } from "react-redux";
+import {
+  signInSuccess,
+  signInFailure,
+  updateUserFailure,
+  updateUserSuccess,
+  updateUserStart,
+  signInStart,
+} from "../redux/user/userSlice.js";
+import { useEffect } from "react";
 
 const Profile = () => {
   const { currentUser } = useSelector((state) => state.user);
@@ -9,11 +19,57 @@ const Profile = () => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const dispatch = useDispatch();
 
   // 🔥 NEW: State for form fields
   const [username, setUsername] = useState(currentUser?.username || "");
   const [email, setEmail] = useState(currentUser?.email || "");
   const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    if (currentUser) {
+      setUsername(currentUser.username || "");
+      setEmail(currentUser.email || "");
+    }
+  }, [currentUser]);
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+
+    try {
+      setUploading(true);
+
+      const response = await fetch(`/api/user/update/${currentUser._id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: username,
+          email: email,
+          password: password || undefined,
+          profilePicture: image || currentUser?.profilePicture,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update Redux state with new user data
+        dispatch(updateUserSuccess(data.user));
+        alert("✅ Profile updated successfully!");
+        setPassword(""); // Clear password field
+      } else {
+        setError(data.message || "Update failed");
+        dispatch(updateUserFailure(data.message || "Failed to update profile"));
+      }
+    } catch (error) {
+      setError("Failed to update profile");
+      dispatch(updateUserFailure("Failed to update profile"));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -55,7 +111,7 @@ const Profile = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Upload failed:", errorData);
+        // console.error("Upload failed:", errorData);
         throw new Error(errorData.error?.message || "Upload failed");
       }
 
@@ -67,7 +123,7 @@ const Profile = () => {
       setUploading(false);
       alert("✅ Image uploaded successfully! Check the console for URL.");
     } catch (error) {
-      console.error("❌ Upload error:", error);
+      // console.error("❌ Upload error:", error);
       setError(error.message || "Failed to upload image");
       setUploading(false);
       setUploadSuccess(false);
@@ -86,10 +142,45 @@ const Profile = () => {
   };
 
   // 🔥 NEW: Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Updating profile:", { username, email, password });
-    // Add your update logic here
+
+    try {
+      setUploading(true);
+      setError("");
+
+      const response = await fetch(`/api/user/update/${currentUser._id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          username: username,
+          email: email,
+          password: password || undefined,
+          profilePicture: image || currentUser?.profilePicture,
+        }),
+      });
+
+      const data = await response.json();
+      console.log("Update response:", data);
+
+      if (data.success) {
+        dispatch(updateUserSuccess(data.user));
+        alert("✅ Profile updated successfully!");
+        setPassword("");
+        setUploadSuccess(true);
+      } else {
+        setError(data.message || "Update failed");
+      }
+    } catch (error) {
+      console.error("Update error:", error);
+      setError("Failed to update profile");
+    } finally {
+      dispatch(updateUserFailure(error.message || "Failed to update profile"));
+      setUploading(false);
+    }
   };
 
   return (
