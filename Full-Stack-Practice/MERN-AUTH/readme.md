@@ -50,7 +50,7 @@ A complete, production-ready authentication solution built with the MERN stack (
 ![Render](https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)
 
 ---
-
+<!--
 ## 📸 Screenshots
 
 ![Home Page]()
@@ -71,7 +71,7 @@ A complete, production-ready authentication solution built with the MERN stack (
 <p align="center">
   <em>Coming soon - Add your screenshots here!</em>
 </p>
-
+-->
 ---
 
 ## 🚀 Getting Started
