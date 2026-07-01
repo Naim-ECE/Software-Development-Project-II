@@ -2,6 +2,7 @@ import React from "react";
 import { useSelector } from "react-redux";
 import { useRef, useState } from "react";
 import { useDispatch } from "react-redux";
+import { cookies } from "../utils/cookies.js";
 import {
   signInSuccess,
   signInFailure,
@@ -12,6 +13,7 @@ import {
   deleteUserStart,
   deleteUserSuccess,
   deleteUserFailure,
+  signOut,
 } from "../redux/user/userSlice.js";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -133,8 +135,7 @@ const Profile = () => {
       const data = await response.json();
       if (response.status === 401) {
         // 🔥 Handle unauthorized - clear cookie and redirect to login
-        document.cookie =
-          "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        cookies.delete("access_token");
         alert("Your session has expired. Please sign in again.");
         window.location.href = "/signin";
         return;
@@ -181,6 +182,26 @@ const Profile = () => {
       }
     } catch (error) {
       dispatch(deleteUserFailure(error.message || "Failed to delete account"));
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      const res = await fetch("/api/auth/signout", {
+        method: "GET",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.status === 200 && data.success) {
+        alert("✅ Signed out successfully!");
+        dispatch(signOut());
+        navigate("/signin");
+      } else {
+        alert("❌ Failed to sign out. Please try again.");
+      }
+    } catch (error) {
+      console.error("Sign out error:", error);
+      alert("❌ An error occurred while signing out. Please try again.");
     }
   };
 
@@ -349,7 +370,10 @@ const Profile = () => {
               Delete Account
             </button>
 
-            <button className="flex-1 py-2.5 px-4 bg-linear-to-r from-gray-600 to-gray-700 text-white font-semibold rounded-lg transition-all duration-300 hover:from-gray-700 hover:to-gray-800 hover:scale-[1.02] hover:shadow-xl hover:shadow-gray-200 active:scale-95 transform flex items-center justify-center gap-2 group text-sm cursor-pointer">
+            <button
+              className="flex-1 py-2.5 px-4 bg-linear-to-r from-gray-600 to-gray-700 text-white font-semibold rounded-lg transition-all duration-300 hover:from-gray-700 hover:to-gray-800 hover:scale-[1.02] hover:shadow-xl hover:shadow-gray-200 active:scale-95 transform flex items-center justify-center gap-2 group text-sm cursor-pointer"
+              onClick={handleSignOut}
+            >
               <svg
                 className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
                 fill="none"
