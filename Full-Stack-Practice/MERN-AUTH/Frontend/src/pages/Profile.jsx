@@ -9,11 +9,16 @@ import {
   updateUserSuccess,
   updateUserStart,
   signInStart,
+  deleteUserStart,
+  deleteUserSuccess,
+  deleteUserFailure,
 } from "../redux/user/userSlice.js";
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 const Profile = () => {
   const { currentUser } = useSelector((state) => state.user);
+  const navigate = useNavigate();
   const fileRef = useRef(null);
   const [image, setImage] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -32,44 +37,6 @@ const Profile = () => {
       setEmail(currentUser.email || "");
     }
   }, [currentUser]);
-
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-
-    try {
-      setUploading(true);
-
-      const response = await fetch(`/api/user/update/${currentUser._id}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: username,
-          email: email,
-          password: password || undefined,
-          profilePicture: image || currentUser?.profilePicture,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Update Redux state with new user data
-        dispatch(updateUserSuccess(data.user));
-        alert("✅ Profile updated successfully!");
-        setPassword(""); // Clear password field
-      } else {
-        setError(data.message || "Update failed");
-        dispatch(updateUserFailure(data.message || "Failed to update profile"));
-      }
-    } catch (error) {
-      setError("Failed to update profile");
-      dispatch(updateUserFailure("Failed to update profile"));
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -164,7 +131,15 @@ const Profile = () => {
       });
 
       const data = await response.json();
-      console.log("Update response:", data);
+      if (response.status === 401) {
+        // 🔥 Handle unauthorized - clear cookie and redirect to login
+        document.cookie =
+          "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        alert("Your session has expired. Please sign in again.");
+        window.location.href = "/signin";
+        return;
+      }
+      // console.log("Update response:", data);
 
       if (data.success) {
         dispatch(updateUserSuccess(data.user));
@@ -178,8 +153,34 @@ const Profile = () => {
       console.error("Update error:", error);
       setError("Failed to update profile");
     } finally {
-      dispatch(updateUserFailure(error.message || "Failed to update profile"));
+      // dispatch(updateUserFailure(error.message || "Failed to update profile"));
       setUploading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      dispatch(deleteUserStart());
+      const res = await fetch(`/api/user/delete/${currentUser._id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.status === 401) {
+        cookies.delete("access_token");
+        alert("Your session has expired. Please sign in again.");
+        navigate("/signin");
+        return;
+      }
+      if (data.success) {
+        alert("✅ Account deleted successfully!");
+        dispatch(deleteUserSuccess());
+      }
+    } catch (error) {
+      dispatch(deleteUserFailure(error.message || "Failed to delete account"));
     }
   };
 
@@ -328,7 +329,10 @@ const Profile = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
-            <button className="flex-1 py-2.5 px-4 bg-linear-to-r from-red-500 to-red-600 text-white font-semibold rounded-lg transition-all duration-300 hover:from-red-600 hover:to-red-700 hover:scale-[1.02] hover:shadow-xl hover:shadow-red-200 active:scale-95 transform flex items-center justify-center gap-2 group text-sm cursor-pointer">
+            <button
+              className="flex-1 py-2.5 px-4 bg-linear-to-r from-red-500 to-red-600 text-white font-semibold rounded-lg transition-all duration-300 hover:from-red-600 hover:to-red-700 hover:scale-[1.02] hover:shadow-xl hover:shadow-red-200 active:scale-95 transform flex items-center justify-center gap-2 group text-sm cursor-pointer"
+              onClick={handleDeleteAccount}
+            >
               <svg
                 className="w-4 h-4 transition-transform duration-300 group-hover:rotate-12"
                 fill="none"

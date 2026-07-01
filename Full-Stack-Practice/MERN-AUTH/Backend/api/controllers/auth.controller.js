@@ -38,8 +38,12 @@ export const signin = async (req, res, next) => {
       .cookie("access_token", token, {
         httpOnly: true,
         sameSite: "lax", // 🔥 Important for CORS
-        secure: true,
+        secure: false,
         maxAge: 60 * 60 * 1000, // 1 hour
+      })
+      .cookie("token_version", "1.0", {
+        httpOnly: true,
+        maxAge: 60 * 60 * 1000,
       })
       .status(200)
       .json(rest);
@@ -60,7 +64,13 @@ export const googleAuth = async (req, res, next) => {
       res
         .cookie("access_token", token, {
           httpOnly: true,
+          sameSite: "lax", // 🔥 Important for CORS
+          secure: false,
           maxAge: 60 * 60 * 1000, // 1 hour
+        })
+        .cookie("token_version", "1.0", {
+          httpOnly: true,
+          maxAge: 60 * 60 * 1000,
         })
         .status(200)
         .json({ success: true, user: rest });
@@ -83,7 +93,13 @@ export const googleAuth = async (req, res, next) => {
       res
         .cookie("access_token", token, {
           httpOnly: true,
+          sameSite: "lax", // 🔥 Important for CORS
+          secure: false,
           maxAge: 60 * 60 * 1000, // 1 hour
+        })
+        .cookie("token_version", "1.0", {
+          httpOnly: true,
+          maxAge: 60 * 60 * 1000,
         })
         .status(201)
         .json({ success: true, user: rest });

@@ -11,6 +11,14 @@ export default defineConfig({
         target: "http://localhost:3000",
         changeOrigin: true,
         secure: false,
+        configure: (proxy, options) => {
+          proxy.on("proxyReq", (proxyReq, req, res) => {
+            // Forward cookies
+            if (req.headers.cookie) {
+              proxyReq.setHeader("cookie", req.headers.cookie);
+            }
+          });
+        },
       },
     },
   },
