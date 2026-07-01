@@ -27,7 +27,7 @@ export const updateUser = async (req, res, next) => {
       updateData.profilePicture = req.body.profilePicture;
     }
 
-    console.log("Update data:", updateData);
+    // console.log("Update data:", updateData);
 
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,

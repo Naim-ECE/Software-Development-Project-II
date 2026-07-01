@@ -85,7 +85,7 @@ const Profile = () => {
       }
 
       const data = await response.json();
-      console.log("✅ Upload successful! Image URL:", data.secure_url);
+      // console.log("✅ Upload successful! Image URL:", data.secure_url);
 
       setImage(data.secure_url);
       setUploadSuccess(true);
@@ -151,7 +151,7 @@ const Profile = () => {
         setError(data.message || "Update failed");
       }
     } catch (error) {
-      console.error("Update error:", error);
+      // console.error("Update error:", error);
       setError("Failed to update profile");
     } finally {
       // dispatch(updateUserFailure(error.message || "Failed to update profile"));
@@ -200,7 +200,7 @@ const Profile = () => {
         alert("❌ Failed to sign out. Please try again.");
       }
     } catch (error) {
-      console.error("Sign out error:", error);
+      // console.error("Sign out error:", error);
       alert("❌ An error occurred while signing out. Please try again.");
     }
   };
@@ -281,7 +281,7 @@ const Profile = () => {
           {uploadSuccess && !uploading && (
             <div className="text-center">
               <p className="text-green-500 text-xs">
-                ✅ Image uploaded successfully!
+                ✅ Profile Updated Successfully!
               </p>
             </div>
           )}
