@@ -5,7 +5,14 @@ import userRoute from "./routes/user.routes.js";
 import authRoute from "./routes/auth.route.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from 'url';
+
 dotenv.config();
+
+// Get __dirname in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 mongoose
   .connect(process.env.MONGO)
@@ -18,34 +25,39 @@ mongoose
 
 const app = express();
 
+// CORS - Allow both localhost and production
 app.use(
   cors({
-    origin: "http://localhost:5173", // Your frontend URL
-    credentials: true, // Allow cookies to be sent
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  })
 );
 
-app.use(express.json()); // to read json data
+app.use(express.json());
+app.use(cookieParser());
 
-app.use(cookieParser()); // to read cookies
-
-// app.get("/", (req, res) => {
-//   res.send("Hello World!");
-// });
-
-const PORT = 3000;
-
+// API Routes
 app.use("/api/user", userRoute);
 app.use("/api/auth", authRoute);
 
+// Serve static files from the build directory
+app.use(express.static(path.join(__dirname, "Frontend", "dist")));
+
+// Serve the index.html file for all routes (SPA)
+app.get("/*path", (req, res) => {
+  res.sendFile(path.join(__dirname, "Frontend", "dist", "index.html"));
+});
+
+// Error handler
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || "Internal Server Error";
   return res.status(statusCode).json({ success: false, message, statusCode });
 });
 
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
