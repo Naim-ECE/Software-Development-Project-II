@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { store } from './store';
 import { restoreSession } from './store/slices/authSlice';
+import { setAccessToken } from './lib/api';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import App from './App';
 import './index.css';
@@ -12,6 +13,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarEleme
 
 function Root() {
   useEffect(() => {
+    setAccessToken(localStorage.getItem('accessToken'));
     store.dispatch(restoreSession());
   }, []);
 

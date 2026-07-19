@@ -4,12 +4,30 @@ import { generateAccessToken, generateRefreshToken, verifyToken } from '../utils
 import { sendEmail } from '../services/emailService.js';
 import crypto from 'crypto';
 import env from '../config/env.js';
+import getFirebaseAdmin from '../config/firebase.js';
+import { normalizeRole, normalizeUserDocument } from '../utils/roles.js';
+
+const issueAuthResponse = async (res, user, statusCode = 200, extra = {}) => {
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
+
+  user.refreshToken = refreshToken;
+  await user.save({ validateBeforeSave: false });
+
+  res.status(statusCode).json({
+    user: normalizeUserDocument(user),
+    accessToken,
+    refreshToken,
+    ...extra,
+  });
+};
 
 // @desc    Register user
 // @route   POST /api/auth/register
 export const register = async (req, res) => {
   try {
     const { name, email, password, role, storeName } = req.body;
+    const normalizedRole = normalizeRole(role);
 
     // Check if user exists
     const existingUser = await User.findOne({ email });
@@ -18,31 +36,17 @@ export const register = async (req, res) => {
     }
 
     // Create user
-    const user = await User.create({ name, email, password, role: role || 'customer' });
+    const user = await User.create({ name, email, password, role: normalizedRole });
 
     // If vendor role, create vendor profile
-    if (role === 'vendor') {
+    if (normalizedRole === 'vendor') {
       await Vendor.create({
         user: user._id,
         storeName: storeName || `${name}'s Store`,
       });
     }
 
-    // Generate tokens
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    // Store refresh token
-    user.refreshToken = refreshToken;
-    await user.save({ validateBeforeSave: false });
-
-    const userData = user.toJSON();
-
-    res.status(201).json({
-      user: userData,
-      accessToken,
-      refreshToken,
-    });
+    await issueAuthResponse(res, user, 201);
   } catch (error) {
     console.error('Register error:', error);
     if (error.name === 'ValidationError') {
@@ -79,23 +83,90 @@ export const login = async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Generate tokens
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    user.refreshToken = refreshToken;
-    await user.save({ validateBeforeSave: false });
-
-    const userData = user.toJSON();
-
-    res.json({
-      user: userData,
-      accessToken,
-      refreshToken,
-    });
+    await issueAuthResponse(res, user);
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
+  }
+};
+
+// @desc    Google/Firebase auth
+// @route   POST /api/auth/google
+export const googleAuth = async (req, res) => {
+  try {
+    const { idToken, role = 'customer', profile = {} } = req.body;
+    const normalizedRole = normalizeRole(role);
+
+    let decoded = null;
+    if (idToken) {
+      try {
+        const firebaseAdmin = getFirebaseAdmin();
+        decoded = await firebaseAdmin.auth().verifyIdToken(idToken);
+      } catch (verificationError) {
+        if (env.NODE_ENV === 'production') {
+          throw verificationError;
+        }
+
+        console.warn('Google token verification failed, using client profile fallback:', verificationError.message);
+      }
+    }
+
+    const email = (decoded?.email || profile.email || '').toLowerCase();
+    if (!email) return res.status(400).json({ error: 'Google account email is required' });
+
+    const googleUid = decoded?.uid || profile.uid || `google:${email}`;
+    const displayName = decoded?.name || profile.name || profile.displayName || email.split('@')[0];
+    const avatar = decoded?.picture || profile.picture || profile.avatar || '';
+
+    let user = await User.findOne({ $or: [{ firebaseUid: googleUid }, { email }] });
+    const wasCreated = !user;
+
+    if (!user) {
+      user = await User.create({
+        name: displayName,
+        email,
+        avatar,
+        role: normalizedRole,
+        firebaseUid: googleUid,
+        authProvider: 'google',
+      });
+
+      if (normalizedRole === 'vendor') {
+        await Vendor.create({
+          user: user._id,
+          storeName: `${user.name}'s Store`,
+        });
+      }
+    } else {
+      user.firebaseUid = user.firebaseUid || googleUid;
+      user.authProvider = user.authProvider || 'google';
+      user.avatar = user.avatar || avatar;
+      await user.save({ validateBeforeSave: false });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({ error: 'Account has been deactivated' });
+    }
+
+    if (normalizeRole(user.role) !== user.role) {
+      user.role = normalizeRole(user.role);
+      await user.save({ validateBeforeSave: false });
+    }
+
+    if (user.role === 'vendor') {
+      const vendor = await Vendor.findOne({ user: user._id });
+      if (!vendor) {
+        await Vendor.create({
+          user: user._id,
+          storeName: `${user.name}'s Store`,
+        });
+      }
+    }
+
+    await issueAuthResponse(res, user, wasCreated ? 201 : 200, { isNewUser: wasCreated });
+  } catch (error) {
+    console.error('Google auth error:', error);
+    res.status(error.statusCode || 401).json({ error: error.message || 'Google authentication failed' });
   }
 };
 
@@ -159,11 +230,17 @@ export const getMe = async (req, res) => {
     }
 
     let vendorData = null;
-    if (user.role === 'vendor') {
+    if (normalizeRole(user.role) === 'vendor') {
       vendorData = await Vendor.findOne({ user: user._id });
+      if (!vendorData) {
+        vendorData = await Vendor.create({
+          user: user._id,
+          storeName: `${user.name}'s Store`,
+        });
+      }
     }
 
-    res.json({ user, vendor: vendorData });
+    res.json({ user: normalizeUserDocument(user), vendor: vendorData });
   } catch (error) {
     console.error('Get me error:', error);
     res.status(500).json({ error: 'Failed to get user profile' });
@@ -257,15 +334,68 @@ export const resetPassword = async (req, res) => {
 // @route   PUT /api/auth/profile
 export const updateProfile = async (req, res) => {
   try {
-    const { name, phone, address } = req.body;
+    const { name, phone, address, avatar } = req.body;
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { name, phone, address },
+      { name, phone, address, avatar },
       { new: true, runValidators: true }
     );
-    res.json({ user });
+    res.json({ user: normalizeUserDocument(user) });
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: 'Profile update failed' });
+  }
+};
+
+// @desc    Admin: list users
+// @route   GET /api/auth/users
+export const getAllUsers = async (req, res) => {
+  try {
+    const { role, search, page = 1, limit = 50 } = req.query;
+    const filter = {};
+    if (role && role !== 'all') filter.role = role;
+    if (search) filter.$or = [
+      { name: new RegExp(search, 'i') },
+      { email: new RegExp(search, 'i') },
+    ];
+
+    const pageNumber = Math.max(Number(page), 1);
+    const pageSize = Math.min(Math.max(Number(limit), 1), 100);
+    const [users, total] = await Promise.all([
+      User.find(filter).sort({ createdAt: -1 }).skip((pageNumber - 1) * pageSize).limit(pageSize),
+      User.countDocuments(filter),
+    ]);
+    res.json({ users: users.map((user) => normalizeUserDocument(user)), total, page: pageNumber, pages: Math.ceil(total / pageSize) });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+};
+
+// @desc    Admin: update user role
+// @route   PUT /api/auth/users/:id/role
+export const updateUserRole = async (req, res) => {
+  try {
+    const { role } = req.body;
+    const normalizedRole = normalizeRole(role, '');
+    if (!normalizedRole) return res.status(400).json({ error: 'Invalid role' });
+
+    const user = await User.findByIdAndUpdate(req.params.id, { role: normalizedRole }, { new: true, runValidators: true });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const existingVendor = await Vendor.findOne({ user: user._id });
+
+    if (normalizedRole === 'vendor') {
+      if (!existingVendor) {
+        await Vendor.create({ user: user._id, storeName: `${user.name}'s Store` });
+      }
+    } else if (existingVendor) {
+      await existingVendor.deleteOne();
+    }
+
+    res.json({ user: normalizeUserDocument(user) });
+  } catch (error) {
+    console.error('Update user role error:', error);
+    res.status(500).json({ error: 'Failed to update user role' });
   }
 };

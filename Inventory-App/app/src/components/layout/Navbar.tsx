@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import { Search, Heart, ShoppingCart, Menu, X, Package, User, LogOut, LayoutDashboard } from 'lucide-react';
 import type { RootState } from '@/store';
 import { useAuth } from '@/hooks/useAuth';
+import { getRoleHomePath } from '@/lib/roles';
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -25,12 +26,7 @@ export default function Navbar() {
 
   const getDashboardLink = () => {
     if (!user) return '/';
-    const links: Record<string, string> = {
-      vendor: '/vendor/dashboard',
-      inventory_manager: '/inventory/dashboard',
-      admin: '/admin/dashboard',
-    };
-    return links[user.role] || '/profile';
+    return user.role === 'customer' ? '/profile' : getRoleHomePath(user.role);
   };
 
   return (

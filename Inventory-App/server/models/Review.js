@@ -35,8 +35,6 @@ const reviewSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-reviewSchema.index({ product: 1 });
-reviewSchema.index({ user: 1 });
 reviewSchema.index({ product: 1, user: 1 }, { unique: true });
 
 // After saving a review, update product rating

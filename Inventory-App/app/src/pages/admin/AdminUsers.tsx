@@ -1,15 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Eye, Pencil, Ban } from 'lucide-react';
+import { authApi } from '@/lib/apis/authApi';
+import type { User } from '@/types';
 
-const mockUsers = [
-  { id: '1', name: 'Alex Johnson', email: 'alex@example.com', role: 'customer', status: 'active' },
-  { id: '2', name: 'Sarah Chen', email: 'sarah@example.com', role: 'vendor', status: 'active' },
-  { id: '3', name: 'Mike Ross', email: 'mike@example.com', role: 'inventory_manager', status: 'active' },
-  { id: '4', name: 'Admin User', email: 'admin@example.com', role: 'admin', status: 'active' },
-  { id: '5', name: 'Emily Davis', email: 'emily@example.com', role: 'customer', status: 'suspended' },
-  { id: '6', name: 'John Smith', email: 'john@example.com', role: 'vendor', status: 'pending' },
-];
+type AdminUser = User & {
+  isActive?: boolean;
+};
 
 const roleColors: Record<string, string> = {
   customer: 'bg-[rgba(59,130,246,0.15)] text-[#3B82F6]',
@@ -27,12 +24,47 @@ const statusColors: Record<string, string> = {
 export default function AdminUsers() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = mockUsers.filter((u) => {
-    if (search && !u.name.toLowerCase().includes(search.toLowerCase()) && !u.email.toLowerCase().includes(search.toLowerCase())) return false;
-    if (roleFilter !== 'all' && u.role !== roleFilter) return false;
-    return true;
-  });
+  useEffect(() => {
+    let active = true;
+
+    const loadUsers = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const liveUsers = await authApi.getUsers({ role: roleFilter === 'all' ? undefined : roleFilter as 'customer' | 'vendor' | 'inventory_manager' | 'admin' });
+        if (active) {
+          setUsers(liveUsers);
+        }
+      } catch (loadError) {
+        if (active) {
+          setError(loadError instanceof Error ? loadError.message : 'Failed to load users');
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadUsers();
+
+    return () => {
+      active = false;
+    };
+  }, [roleFilter]);
+
+  const filtered = useMemo(
+    () => users.filter((u) => {
+      if (search && !u.name.toLowerCase().includes(search.toLowerCase()) && !u.email.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    }),
+    [search, users]
+  );
 
   return (
     <div className="space-y-6">
@@ -57,6 +89,8 @@ export default function AdminUsers() {
 
       <div className="bg-[#111827] border border-[#2D3748] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
+          {isLoading && <div className="px-4 py-6 text-sm text-[#9CA3AF]">Loading live users from MongoDB...</div>}
+          {error && !isLoading && <div className="px-4 py-6 text-sm text-[#EF4444]">{error}</div>}
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[#9CA3AF] text-xs uppercase tracking-wider border-b border-[#1F2937]">
@@ -67,8 +101,8 @@ export default function AdminUsers() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((u, i) => (
-                <motion.tr key={u.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="border-b border-[#1F2937] hover:bg-[rgba(255,255,255,0.02)]">
+              {!isLoading && !error && filtered.map((u, i) => (
+                <motion.tr key={u._id || u.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="border-b border-[#1F2937] hover:bg-[rgba(255,255,255,0.02)]">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-[#22C55E] flex items-center justify-center text-white text-xs font-semibold">{u.name[0]}</div>
@@ -79,7 +113,7 @@ export default function AdminUsers() {
                     </div>
                   </td>
                   <td className="py-3 px-4"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${roleColors[u.role]}`}>{u.role.replace('_', ' ')}</span></td>
-                  <td className="py-3 px-4"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[u.status]}`}>{u.status}</span></td>
+                  <td className="py-3 px-4"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[u.isActive === false ? 'suspended' : 'active']}`}>{u.isActive === false ? 'suspended' : 'active'}</span></td>
                   <td className="py-3 px-4">
                     <div className="flex gap-1">
                       <button className="p-1.5 text-[#9CA3AF] hover:text-[#3B82F6] hover:bg-[rgba(59,130,246,0.1)] rounded-lg"><Eye className="w-4 h-4" /></button>

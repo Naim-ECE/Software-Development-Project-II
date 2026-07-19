@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { Search, Bell, Menu, Sun, Moon, User, LogOut, Settings, Package } from 'lucide-react';
@@ -6,7 +6,9 @@ import type { RootState } from '@/store';
 import { useAuth } from '@/hooks/useAuth';
 import { toggleTheme } from '@/store/slices/themeSlice';
 import { useDispatch } from 'react-redux';
-import { notifications } from '@/data/mockData';
+import { getRoleHomePath } from '@/lib/roles';
+import { notificationApi, type NotificationItem } from '@/lib/apis/notificationApi';
+import { io, type Socket } from 'socket.io-client';
 
 interface TopBarProps {
   title: string;
@@ -16,20 +18,111 @@ interface TopBarProps {
 export default function TopBar({ title, onMenuClick }: TopBarProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
   const { user, logout } = useAuth();
   const theme = useSelector((state: RootState) => state.theme.mode);
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    let active = true;
+    let socket: Socket | null = null;
+
+    const loadNotifications = async () => {
+      setLoadingNotifications(true);
+      setNotificationError(null);
+
+      try {
+        const response = await notificationApi.getNotifications();
+        if (!active) return;
+        setNotifications(response.notifications);
+        setUnreadCount(response.unreadCount);
+      } catch (error) {
+        if (!active) return;
+        setNotificationError(error instanceof Error ? error.message : 'Failed to load notifications');
+      } finally {
+        if (active) {
+          setLoadingNotifications(false);
+        }
+      }
+    };
+
+    void loadNotifications();
+
+    const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const token = localStorage.getItem('accessToken');
+
+    if (token) {
+      socket = io(socketUrl, {
+        auth: { token },
+        transports: ['websocket'],
+      });
+
+      socket.on('notification:new', (notification: NotificationItem) => {
+        if (!active) return;
+        setNotifications((current) => {
+          if (current.some((item) => item._id === notification._id)) return current;
+          return [notification, ...current].slice(0, 100);
+        });
+        if (!notification.read) {
+          setUnreadCount((current) => current + 1);
+        }
+      });
+
+      socket.on('connect_error', () => {
+        if (active) {
+          void loadNotifications();
+        }
+      });
+    }
+
+    const refreshTimer = window.setInterval(() => {
+      void loadNotifications();
+    }, 15000);
+
+    return () => {
+      active = false;
+      window.clearInterval(refreshTimer);
+      socket?.disconnect();
+    };
+  }, [user]);
+
+  const handleMarkAllRead = async () => {
+    if (!unreadCount) return;
+
+    try {
+      await notificationApi.markAllAsRead();
+      setNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      setNotificationError(error instanceof Error ? error.message : 'Failed to update notifications');
+    }
+  };
+
+  const handleNotificationClick = async (notification: NotificationItem) => {
+    if (notification.read) return;
+
+    try {
+      await notificationApi.markAsRead(notification._id);
+      setNotifications((current) => current.map((item) => (item._id === notification._id ? { ...item, read: true } : item)));
+      setUnreadCount((current) => Math.max(current - 1, 0));
+    } catch (error) {
+      setNotificationError(error instanceof Error ? error.message : 'Failed to update notification');
+    }
+  };
 
   const getDashboardLink = () => {
     if (!user) return '/';
-    const links: Record<string, string> = {
-      vendor: '/vendor/dashboard',
-      inventory_manager: '/inventory/dashboard',
-      admin: '/admin/dashboard',
-    };
-    return links[user.role] || '/profile';
+    return user.role === 'customer' ? '/profile' : getRoleHomePath(user.role);
   };
 
   return (
@@ -67,15 +160,25 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
               <div className="absolute right-0 top-12 w-80 bg-[#1F2937] rounded-xl shadow-2xl border border-[#2D3748] z-50 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[#2D3748]">
                   <h3 className="text-sm font-semibold text-[#F9FAFB]">Notifications</h3>
-                  <button className="text-xs text-[#22C55E] hover:underline">Mark all read</button>
+                  <button onClick={handleMarkAllRead} className="text-xs text-[#22C55E] hover:underline" disabled={!unreadCount}>Mark all read</button>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
-                  {notifications.map((n) => (
-                    <div key={n.id} className={`px-4 py-3 border-b border-[#2D3748] hover:bg-[rgba(255,255,255,0.05)] cursor-pointer ${!n.read ? 'border-l-[3px] border-l-[#22C55E]' : ''}`}>
-                      <p className="text-sm text-[#F9FAFB] font-medium">{n.title}</p>
-                      <p className="text-xs text-[#9CA3AF] mt-0.5">{n.message}</p>
-                      <p className="text-[10px] text-[#6B7280] mt-1">{new Date(n.createdAt).toLocaleDateString()}</p>
-                    </div>
+                  {loadingNotifications && <div className="px-4 py-4 text-sm text-[#9CA3AF]">Loading notifications...</div>}
+                  {notificationError && !loadingNotifications && <div className="px-4 py-4 text-sm text-[#EF4444]">{notificationError}</div>}
+                  {!loadingNotifications && !notificationError && notifications.length === 0 && (
+                    <div className="px-4 py-4 text-sm text-[#9CA3AF]">No notifications yet.</div>
+                  )}
+                  {!loadingNotifications && !notificationError && notifications.map((notification) => (
+                    <button
+                      key={notification._id}
+                      type="button"
+                      onClick={() => { void handleNotificationClick(notification); }}
+                      className={`w-full text-left px-4 py-3 border-b border-[#2D3748] hover:bg-[rgba(255,255,255,0.05)] cursor-pointer ${!notification.read ? 'border-l-[3px] border-l-[#22C55E]' : ''}`}
+                    >
+                      <p className="text-sm text-[#F9FAFB] font-medium">{notification.title}</p>
+                      <p className="text-xs text-[#9CA3AF] mt-0.5">{notification.message}</p>
+                      <p className="text-[10px] text-[#6B7280] mt-1">{new Date(notification.createdAt).toLocaleDateString()}</p>
+                    </button>
                   ))}
                 </div>
               </div>

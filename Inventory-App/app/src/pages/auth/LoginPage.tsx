@@ -3,29 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { Package, Eye, EyeOff } from 'lucide-react';
-import type { UserRole } from '@/types';
 import { motion } from 'framer-motion';
-
-const roles: { value: UserRole; label: string }[] = [
-  { value: 'customer', label: 'Customer' },
-  { value: 'vendor', label: 'Vendor' },
-  { value: 'inventory_manager', label: 'Inventory Manager' },
-  { value: 'admin', label: 'Admin' },
-];
-
-const roleRedirects: Record<UserRole, string> = {
-  customer: '/shop',
-  vendor: '/vendor/dashboard',
-  inventory_manager: '/inventory/dashboard',
-  admin: '/admin/dashboard',
-};
+import { getRoleHomePath } from '@/lib/roles';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('customer');
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isLoading, error } = useAuth();
+  const { login, googleLogin, isLoading, error } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -36,11 +21,21 @@ export default function LoginPage() {
       return;
     }
     try {
-      await login(email, password, role);
+      const user = await login(email, password);
       toast.success('Welcome back!');
-      navigate(roleRedirects[role]);
-    } catch {
-      toast.error('Login failed');
+      navigate(getRoleHomePath(user.role));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Login failed');
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const user = await googleLogin();
+      toast.success('Welcome back!');
+      navigate(getRoleHomePath(user.role));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Google sign-in failed');
     }
   };
 
@@ -59,20 +54,6 @@ export default function LoginPage() {
           </Link>
           <h1 className="text-2xl font-bold text-[#0F172A] font-[Poppins]">Welcome Back</h1>
           <p className="text-sm text-[#64748B] mt-1">Sign in to your account</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 mb-6">
-          {roles.map((r) => (
-            <button
-              key={r.value}
-              onClick={() => setRole(r.value)}
-              className={`py-2 px-3 text-xs font-medium rounded-lg transition-all ${
-                role === r.value ? 'bg-[#22C55E] text-white' : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0]'
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -123,6 +104,21 @@ export default function LoginPage() {
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+
+        <div className="my-5 flex items-center gap-3">
+          <div className="h-px flex-1 bg-[#E2E8F0]" />
+          <span className="text-xs text-[#94A3B8]">or</span>
+          <div className="h-px flex-1 bg-[#E2E8F0]" />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={isLoading}
+          className="w-full py-2.5 bg-white border border-[#E2E8F0] text-[#0F172A] font-medium rounded-lg hover:bg-[#F8FAFC] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Sign in with Google
+        </button>
 
         <p className="text-center text-sm text-[#64748B] mt-6">
           Don't have an account?{' '}

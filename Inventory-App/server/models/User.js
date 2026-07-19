@@ -19,9 +19,21 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required() {
+        return this.authProvider !== 'google';
+      },
       minlength: [6, 'Password must be at least 6 characters'],
       select: false,
+    },
+    firebaseUid: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    authProvider: {
+      type: String,
+      enum: ['local', 'google'],
+      default: 'local',
     },
     role: {
       type: String,
@@ -68,8 +80,6 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Index
-userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
 
 // Hash password before save
@@ -82,6 +92,7 @@ userSchema.pre('save', async function (next) {
 
 // Compare password method
 userSchema.methods.comparePassword = async function (candidatePassword) {
+  if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 

@@ -1,7 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, CheckCircle, XCircle } from 'lucide-react';
-import { products } from '@/data/mockData';
+import api from '@/lib/api';
+
+type LiveProduct = {
+  _id: string;
+  id?: string;
+  name: string;
+  vendor: { storeName?: string } | string;
+  category: { name?: string } | string;
+  price: number;
+  status: 'active' | 'pending' | 'draft' | 'rejected';
+  image?: string;
+};
 
 const statusColors: Record<string, string> = {
   active: 'bg-[rgba(34,197,94,0.15)] text-[#22C55E]',
@@ -14,7 +25,38 @@ const tabs = ['All', 'Pending Review', 'Approved', 'Rejected'];
 
 export default function AdminProducts() {
   const [activeTab, setActiveTab] = useState('All');
-  const filtered = activeTab === 'All' ? products : products.filter((p) => p.status === activeTab.toLowerCase().replace(' review', ''));
+  const [products, setProducts] = useState<LiveProduct[]>([]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProducts = async () => {
+      try {
+        const { data } = await api.get<{ products: LiveProduct[] }>('/api/products');
+        if (active) {
+          setProducts(data.products);
+        }
+      } catch {
+        if (active) {
+          setProducts([]);
+        }
+      }
+    };
+
+    void loadProducts();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (activeTab === 'All') return products;
+    if (activeTab === 'Approved') return products.filter((product) => product.status === 'active');
+    if (activeTab === 'Pending Review') return products.filter((product) => product.status === 'pending');
+    if (activeTab === 'Rejected') return products.filter((product) => product.status === 'rejected');
+    return products;
+  }, [activeTab, products]);
 
   return (
     <div className="space-y-6">
@@ -38,15 +80,15 @@ export default function AdminProducts() {
             </thead>
             <tbody>
               {filtered.map((p, i) => (
-                <motion.tr key={p.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="border-b border-[#1F2937] hover:bg-[rgba(255,255,255,0.02)]">
+                <motion.tr key={p._id || p.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="border-b border-[#1F2937] hover:bg-[rgba(255,255,255,0.02)]">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
-                      <img src={p.image} alt="" className="w-10 h-10 object-cover rounded-lg" />
+                      <img src={p.image || ''} alt="" className="w-10 h-10 object-cover rounded-lg" />
                       <span className="text-[#F9FAFB] font-medium">{p.name}</span>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-[#9CA3AF]">{p.vendor}</td>
-                  <td className="py-3 px-4 text-[#9CA3AF]">{p.category}</td>
+                  <td className="py-3 px-4 text-[#9CA3AF]">{typeof p.vendor === 'string' ? p.vendor : p.vendor?.storeName || 'Vendor'}</td>
+                  <td className="py-3 px-4 text-[#9CA3AF]">{typeof p.category === 'string' ? p.category : p.category?.name || 'Category'}</td>
                   <td className="py-3 px-4 text-[#F9FAFB]">${p.price.toFixed(2)}</td>
                   <td className="py-3 px-4"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[p.status]}`}>{p.status}</span></td>
                   <td className="py-3 px-4">

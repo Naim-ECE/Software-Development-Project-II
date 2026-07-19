@@ -1,6 +1,17 @@
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, RefreshCw } from 'lucide-react';
-import { orders } from '@/data/mockData';
+import api from '@/lib/api';
+
+type LiveOrder = {
+  _id: string;
+  id?: string;
+  orderNumber: string;
+  customer: { name?: string } | string;
+  items: { _id?: string }[];
+  total: number;
+  status: string;
+};
 
 const statusColors: Record<string, string> = {
   pending: 'bg-[rgba(59,130,246,0.15)] text-[#3B82F6]',
@@ -11,6 +22,33 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AdminOrders() {
+  const [orders, setOrders] = useState<LiveOrder[]>([]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadOrders = async () => {
+      try {
+        const { data } = await api.get<{ orders: LiveOrder[] }>('/api/orders/admin');
+        if (active) {
+          setOrders(data.orders);
+        }
+      } catch {
+        if (active) {
+          setOrders([]);
+        }
+      }
+    };
+
+    void loadOrders();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const liveOrders = useMemo(() => orders, [orders]);
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-[#F9FAFB] font-[Poppins]">Orders</h2>
@@ -29,10 +67,10 @@ export default function AdminOrders() {
               </tr>
             </thead>
             <tbody>
-              {orders.map((order, i) => (
-                <motion.tr key={order.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="border-b border-[#1F2937] hover:bg-[rgba(255,255,255,0.02)]">
+              {liveOrders.map((order, i) => (
+                <motion.tr key={order._id || order.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="border-b border-[#1F2937] hover:bg-[rgba(255,255,255,0.02)]">
                   <td className="py-3 px-4 text-[#F9FAFB] font-medium">{order.orderNumber}</td>
-                  <td className="py-3 px-4 text-[#F9FAFB]">{order.customer}</td>
+                  <td className="py-3 px-4 text-[#F9FAFB]">{typeof order.customer === 'string' ? order.customer : order.customer?.name || 'Customer'}</td>
                   <td className="py-3 px-4 text-[#9CA3AF]">Multiple</td>
                   <td className="py-3 px-4 text-[#9CA3AF]">{order.items.length}</td>
                   <td className="py-3 px-4 text-[#F9FAFB] font-medium">${order.total.toFixed(2)}</td>

@@ -44,8 +44,6 @@ const purchaseRecordSchema = new mongoose.Schema(
 
 purchaseRecordSchema.index({ supplier: 1 });
 purchaseRecordSchema.index({ status: 1 });
-purchaseRecordSchema.index({ poNumber: 1 });
-
 purchaseRecordSchema.pre('save', async function (next) {
   if (!this.poNumber) {
     const count = await mongoose.model('PurchaseRecord').countDocuments();

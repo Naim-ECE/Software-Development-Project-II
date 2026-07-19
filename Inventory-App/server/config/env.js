@@ -1,4 +1,11 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const requiredEnvVars = [
   'MONGODB_URI',
@@ -26,6 +33,9 @@ const env = {
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || '',
+  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || '',
+  FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY || '',
   SMTP_HOST: process.env.SMTP_HOST || '',
   SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
   SMTP_USER: process.env.SMTP_USER || '',
@@ -44,6 +54,7 @@ console.log('\n--- Startup Validation Report ---');
 console.log('✓ MongoDB configured');
 console.log('✓ JWT configured');
 console.log(hasCloudinary ? '✓ Cloudinary configured' : '⚠ Cloudinary skipped (Image uploads disabled)');
+console.log(env.FIREBASE_PROJECT_ID ? '✓ Firebase project configured' : '⚠ Firebase skipped (Google auth disabled)');
 console.log(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS ? '✓ SMTP configured' : '⚠ SMTP skipped (Emails will not be sent)');
 console.log('✓ Server ready');
 console.log('---------------------------------\n');

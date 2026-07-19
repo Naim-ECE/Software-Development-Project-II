@@ -1,6 +1,7 @@
 import { verifyToken } from '../utils/jwt.js';
 import User from '../models/User.js';
 import env from '../config/env.js';
+import { normalizeRole } from '../utils/roles.js';
 
 export const protect = async (req, res, next) => {
   try {
@@ -23,6 +24,8 @@ export const protect = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
+
+    user.role = normalizeRole(user.role);
 
     if (!user.isActive) {
       return res.status(403).json({ error: 'Account has been deactivated' });

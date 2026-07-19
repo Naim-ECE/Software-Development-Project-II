@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, Printer } from 'lucide-react';
-import { orders } from '@/data/mockData';
+import api from '@/lib/api';
 
 const tabs = ['All', 'New', 'Processing', 'Shipped', 'Delivered'];
 const statusColors: Record<string, string> = {
@@ -12,9 +12,55 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-[rgba(239,68,68,0.15)] text-[#EF4444]',
 };
 
+type LiveOrder = {
+  _id: string;
+  id?: string;
+  orderNumber: string;
+  createdAt: string;
+  customer: { name?: string } | string;
+  items: { _id?: string; quantity: number }[];
+  total: number;
+  status: string;
+};
+
 export default function VendorOrders() {
   const [activeTab, setActiveTab] = useState('All');
-  const filtered = activeTab === 'All' ? orders : orders.filter((o) => o.status.toLowerCase() === activeTab.toLowerCase());
+  const [orders, setOrders] = useState<LiveOrder[]>([]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadOrders = async () => {
+      try {
+        const { data } = await api.get<{ orders: LiveOrder[] }>('/api/orders/vendor');
+        if (active) {
+          setOrders(data.orders);
+        }
+      } catch {
+        if (active) {
+          setOrders([]);
+        }
+      }
+    };
+
+    void loadOrders();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (activeTab === 'All') return orders;
+    return orders.filter((order) => {
+      const normalized = order.status.toLowerCase();
+      if (activeTab === 'New') return normalized === 'pending' || normalized === 'confirmed';
+      if (activeTab === 'Processing') return normalized === 'packed';
+      if (activeTab === 'Shipped') return normalized === 'shipped';
+      if (activeTab === 'Delivered') return normalized === 'delivered';
+      return true;
+    });
+  }, [activeTab, orders]);
 
   return (
     <div className="space-y-6">
@@ -46,10 +92,10 @@ export default function VendorOrders() {
             </thead>
             <tbody>
               {filtered.map((order, i) => (
-                <motion.tr key={order.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="border-b border-[#1F2937] hover:bg-[rgba(255,255,255,0.02)]">
+                <motion.tr key={order._id || order.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="border-b border-[#1F2937] hover:bg-[rgba(255,255,255,0.02)]">
                   <td className="py-3 px-4 text-[#F9FAFB] font-medium">{order.orderNumber}</td>
                   <td className="py-3 px-4 text-[#9CA3AF]">{new Date(order.createdAt).toLocaleDateString()}</td>
-                  <td className="py-3 px-4 text-[#F9FAFB]">{order.customer}</td>
+                  <td className="py-3 px-4 text-[#F9FAFB]">{typeof order.customer === 'string' ? order.customer : order.customer?.name || 'Customer'}</td>
                   <td className="py-3 px-4 text-[#9CA3AF]">{order.items.length} items</td>
                   <td className="py-3 px-4 text-[#F9FAFB] font-medium">${order.total.toFixed(2)}</td>
                   <td className="py-3 px-4"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[order.status]}`}>{order.status}</span></td>

@@ -1,8 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus, Search, Eye, Pencil, Trash2, Grid3X3, List } from 'lucide-react';
-import { products } from '@/data/mockData';
+import api from '@/lib/api';
+
+type LiveProduct = {
+  _id: string;
+  id?: string;
+  name: string;
+  sku: string;
+  category: { name?: string } | string;
+  price: number;
+  stock: number;
+  status: 'active' | 'pending' | 'draft' | 'rejected';
+  image?: string;
+};
 
 const statusColors: Record<string, { bg: string; text: string }> = {
   active: { bg: 'bg-[rgba(34,197,94,0.15)]', text: 'text-[#22C55E]' },
@@ -15,12 +27,39 @@ export default function VendorProducts() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [products, setProducts] = useState<LiveProduct[]>([]);
 
-  const filtered = products.filter((p) => {
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filter !== 'all' && p.status !== filter) return false;
-    return true;
-  });
+  useEffect(() => {
+    let active = true;
+
+    const loadProducts = async () => {
+      try {
+        const { data } = await api.get<{ products: LiveProduct[] }>('/api/products/vendor/mine');
+        if (active) {
+          setProducts(data.products);
+        }
+      } catch {
+        if (active) {
+          setProducts([]);
+        }
+      }
+    };
+
+    void loadProducts();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const filtered = useMemo(
+    () => products.filter((product) => {
+      if (search && !product.name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (filter !== 'all' && product.status !== filter) return false;
+      return true;
+    }),
+    [filter, products, search]
+  );
 
   return (
     <div className="space-y-6">
@@ -70,15 +109,15 @@ export default function VendorProducts() {
                 {filtered.map((product) => {
                   const sc = statusColors[product.status] || statusColors.draft;
                   return (
-                    <tr key={product.id} className="border-b border-[#1F2937] hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                    <tr key={product._id || product.id} className="border-b border-[#1F2937] hover:bg-[rgba(255,255,255,0.02)] transition-colors">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          <img src={product.image} alt="" className="w-10 h-10 object-cover rounded-lg" />
+                          <img src={product.image || ''} alt="" className="w-10 h-10 object-cover rounded-lg" />
                           <span className="text-[#F9FAFB] font-medium">{product.name}</span>
                         </div>
                       </td>
                       <td className="py-3 px-4 text-[#9CA3AF]">{product.sku}</td>
-                      <td className="py-3 px-4 text-[#9CA3AF]">{product.category}</td>
+                      <td className="py-3 px-4 text-[#9CA3AF]">{typeof product.category === 'string' ? product.category : product.category?.name || 'Category'}</td>
                       <td className="py-3 px-4 text-[#F9FAFB]">${product.price.toFixed(2)}</td>
                       <td className="py-3 px-4 text-[#F9FAFB]">{product.stock}</td>
                       <td className="py-3 px-4"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${sc.bg} ${sc.text}`}>{product.status}</span></td>
@@ -99,8 +138,8 @@ export default function VendorProducts() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {filtered.map((product, i) => (
-            <motion.div key={product.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="bg-[#111827] border border-[#2D3748] rounded-xl overflow-hidden group">
-              <div className="aspect-square overflow-hidden"><img src={product.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" /></div>
+            <motion.div key={product._id || product.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="bg-[#111827] border border-[#2D3748] rounded-xl overflow-hidden group">
+              <div className="aspect-square overflow-hidden"><img src={product.image || ''} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" /></div>
               <div className="p-4">
                 <h4 className="text-sm font-medium text-[#F9FAFB] mb-1">{product.name}</h4>
                 <p className="text-sm text-[#22C55E] font-semibold">${product.price.toFixed(2)}</p>

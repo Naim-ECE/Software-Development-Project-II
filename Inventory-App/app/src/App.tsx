@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from './store';
@@ -51,8 +52,16 @@ import ToastContainer from './components/ui/ToastContainer';
 export default function App() {
   const theme = useSelector((state: RootState) => state.theme.mode);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', theme === 'dark');
+    root.style.colorScheme = theme;
+    document.body.classList.toggle('dark', theme === 'dark');
+    document.body.style.colorScheme = theme;
+  }, [theme]);
+
   return (
-    <div className={theme === 'dark' ? 'dark' : ''}>
+    <div className="min-h-screen bg-background text-foreground">
       <Routes>
         <Route element={<MarketplaceLayout />}>
           <Route path="/" element={<LandingPage />} />

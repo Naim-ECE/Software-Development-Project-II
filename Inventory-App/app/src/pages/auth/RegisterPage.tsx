@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/useToast';
 import { Package, Eye, EyeOff } from 'lucide-react';
 import type { UserRole } from '@/types';
 import { motion } from 'framer-motion';
+import { getRoleHomePath } from '@/lib/roles';
 
 const roles: { value: UserRole; label: string }[] = [
   { value: 'customer', label: 'Customer' },
@@ -21,7 +22,7 @@ export default function RegisterPage() {
   const [role, setRole] = useState<UserRole>('customer');
   const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
-  const { register, isLoading } = useAuth();
+  const { register, googleLogin, isLoading } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -42,11 +43,25 @@ export default function RegisterPage() {
       return;
     }
     try {
-      await register(name, email, password, role);
+      const user = await register(name, email, password, role);
       toast.success('Account created successfully!');
-      navigate('/shop');
-    } catch {
-      toast.error('Registration failed');
+      navigate(getRoleHomePath(user.role));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Registration failed');
+    }
+  };
+
+  const handleGoogleRegister = async () => {
+    if (!agreed) {
+      toast.error('Please agree to the terms');
+      return;
+    }
+    try {
+      const user = await googleLogin(role);
+      toast.success('Account created successfully!');
+      navigate(getRoleHomePath(user.role));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Google sign-up failed');
     }
   };
 
@@ -103,6 +118,21 @@ export default function RegisterPage() {
             {isLoading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
+
+        <div className="my-5 flex items-center gap-3">
+          <div className="h-px flex-1 bg-[#E2E8F0]" />
+          <span className="text-xs text-[#94A3B8]">or</span>
+          <div className="h-px flex-1 bg-[#E2E8F0]" />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogleRegister}
+          disabled={isLoading}
+          className="w-full py-2.5 bg-white border border-[#E2E8F0] text-[#0F172A] font-medium rounded-lg hover:bg-[#F8FAFC] transition-colors disabled:opacity-50"
+        >
+          Sign up with Google
+        </button>
 
         <p className="text-center text-sm text-[#64748B] mt-6">Already have an account? <Link to="/login" className="text-[#3B82F6] font-medium hover:underline">Sign In</Link></p>
       </motion.div>

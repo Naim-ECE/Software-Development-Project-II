@@ -2,10 +2,15 @@ export type UserRole = 'customer' | 'vendor' | 'inventory_manager' | 'admin';
 
 export interface User {
   id: string;
+  _id?: string;
   name: string;
   email: string;
   role: UserRole;
   avatar?: string;
+  phone?: string;
+  address?: Partial<Address>;
+  firebaseUid?: string;
+  authProvider?: 'local' | 'google';
   token?: string;
 }
 

@@ -1,7 +1,8 @@
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState, AppDispatch } from '@/store';
-import { loginUser, registerUser, logout } from '@/store/slices/authSlice';
-import type { UserRole } from '@/types';
+import { googleLogin, loginUser, registerUser, logout, updateProfile } from '@/store/slices/authSlice';
+import type { User, UserRole } from '@/types';
+import type { ProfilePayload } from '@/lib/apis/authApi';
 
 export function useAuth() {
   const dispatch = useDispatch<AppDispatch>();
@@ -12,8 +13,10 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     error,
-    login: (email: string, password: string, role: UserRole) => dispatch(loginUser({ email, password, role })),
-    register: (name: string, email: string, password: string, role: UserRole) => dispatch(registerUser({ name, email, password, role })),
+    login: (email: string, password: string) => dispatch(loginUser({ email, password })).unwrap(),
+    register: (name: string, email: string, password: string, role: UserRole) => dispatch(registerUser({ name, email, password, role })).unwrap(),
+    googleLogin: (role?: UserRole) => dispatch(googleLogin(role)).unwrap(),
+    updateProfile: (payload: ProfilePayload) => dispatch(updateProfile(payload)).unwrap() as Promise<User>,
     logout: () => dispatch(logout()),
   };
 }

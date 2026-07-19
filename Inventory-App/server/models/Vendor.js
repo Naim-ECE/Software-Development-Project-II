@@ -58,7 +58,6 @@ const vendorSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-vendorSchema.index({ user: 1 });
 vendorSchema.index({ isApproved: 1 });
 vendorSchema.index({ storeName: 'text' });
 

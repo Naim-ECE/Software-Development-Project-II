@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@/store';
 import type { UserRole } from '@/types';
+import { getRoleHomePath, normalizeUserRole } from '@/lib/roles';
 
 interface ProtectedRouteProps {
   allowedRoles: UserRole[];
@@ -15,14 +16,10 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (user && !allowedRoles.includes(user.role)) {
-    const roleRedirects: Record<UserRole, string> = {
-      customer: '/shop',
-      vendor: '/vendor/dashboard',
-      inventory_manager: '/inventory/dashboard',
-      admin: '/admin/dashboard',
-    };
-    return <Navigate to={roleRedirects[user.role]} replace />;
+  const activeRole = user ? normalizeUserRole(user.role) : 'customer';
+
+  if (user && !allowedRoles.includes(activeRole)) {
+    return <Navigate to={getRoleHomePath(activeRole)} replace />;
   }
 
   return <Outlet />;
